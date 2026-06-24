@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  type      String   @default("buyer")
+  notes     String?
+  tags      String?
+  deals       Deal[]
+  properties  Property[] @relation("PropertyOwner")
+  tasks       Task[]
+  showings    Showing[]
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  title       String
+  address     String
+  price       Float
+  bedrooms    Int?
+  bathrooms   Float?
+  sqft        Int?
+  type        String   @default("house")
+  status      String   @default("active")
+  description String?
+  images      String?
+  ownerId     String?
+  owner       Contact? @relation("PropertyOwner", fields: [ownerId], references: [id])
+  deals       Deal[]
+  showings    Showing[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Deal {
+  id         String   @id @default(cuid())
+  title      String
+  value      Float
+  stage      String
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  notes      String?
+  tasks      Task[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Showing {
+  id         String   @id @default(cuid())
+  dateTime   DateTime
+  status     String   @default("scheduled")
+  notes      String?
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  dueDate   DateTime?
+  completed Boolean  @default(false)
+  priority  String   @default("medium")
+  notes     String?
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
