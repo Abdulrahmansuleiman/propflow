@@ -6,7 +6,22 @@ import { useRouter } from 'next/navigation'
 export default function ContactDetail({ contact }: { contact: any }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(contact)
+  const [meetingNotes, setMeetingNotes] = useState('')
+  const [summary, setSummary] = useState('')
+  const [summarizing, setSummarizing] = useState(false)
   const router = useRouter()
+
+  async function handleSummarize() {
+    if (!meetingNotes.trim()) return
+    setSummarizing(true)
+    const res = await fetch('/api/ai/summarize-notes', {
+      method: 'POST',
+      body: JSON.stringify({ notes: meetingNotes }),
+    })
+    const data = await res.json()
+    setSummary(data.summary || 'Unable to summarize.')
+    setSummarizing(false)
+  }
 
   async function handleSave() {
     await fetch(`/api/contacts/${contact.id}`, {
@@ -88,6 +103,30 @@ export default function ContactDetail({ contact }: { contact: any }) {
         {contact.notes && <p className="mt-3 text-gray-300 whitespace-pre-wrap">{contact.notes}</p>}
       </div>
       <p className="text-xs text-gray-600 mt-4">Created {new Date(contact.createdAt).toLocaleDateString()}</p>
+
+      <div className="mt-6 border-t border-gray-800 pt-4">
+        <label className="block text-sm text-gray-400 mb-2">Meeting Notes</label>
+        <textarea
+          rows={4}
+          value={meetingNotes}
+          onChange={(e) => setMeetingNotes(e.target.value)}
+          placeholder="Paste meeting notes here to summarize..."
+          className="w-full"
+        />
+        <button
+          onClick={handleSummarize}
+          disabled={summarizing || !meetingNotes.trim()}
+          className="mt-2 rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+        >
+          {summarizing ? 'Summarizing...' : 'Summarize with Claude'}
+        </button>
+        {summary && (
+          <div className="mt-3 rounded-lg bg-gray-800/50 p-4">
+            <p className="text-xs text-gray-400 mb-2">Summary</p>
+            <p className="text-sm text-gray-200 whitespace-pre-wrap">{summary}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

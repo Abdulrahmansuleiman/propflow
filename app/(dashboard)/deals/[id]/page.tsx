@@ -12,6 +12,12 @@ export default function DealPage() {
   const [deal, setDeal] = useState<any>(null)
   const [notes, setNotes] = useState('')
   const [stage, setStage] = useState('')
+  const [emailDraft, setEmailDraft] = useState('')
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [showEmail, setShowEmail] = useState(false)
+  const [proposal, setProposal] = useState('')
+  const [proposalLoading, setProposalLoading] = useState(false)
+  const [showProposal, setShowProposal] = useState(false)
 
   useEffect(() => {
     fetch(`/api/deals/${id}`).then((r) => r.json()).then((d) => {
@@ -22,8 +28,21 @@ export default function DealPage() {
   }, [id])
 
   async function updateStage(newStage: string) {
+    const oldStage = stage
     setStage(newStage)
     await fetch(`/api/deals/${id}`, { method: 'PATCH', body: JSON.stringify({ stage: newStage }) })
+
+    if (newStage === 'Discovery' && oldStage !== 'Discovery') {
+      await fetch('/api/calendar', {
+        method: 'POST',
+        body: JSON.stringify({
+          summary: `Discovery Call - ${deal?.title}`,
+          description: `Discovery call with ${deal?.contact?.name} regarding ${deal?.title}. Notes: ${deal?.notes || ''}`,
+          startTime: new Date(Date.now() + 86400000).toISOString(),
+          endTime: new Date(Date.now() + 86400000 + 3600000).toISOString(),
+        }),
+      })
+    }
   }
 
   async function saveNotes() {
@@ -34,6 +53,42 @@ export default function DealPage() {
     if (!confirm('Delete this deal?')) return
     await fetch(`/api/deals/${id}`, { method: 'DELETE' })
     router.push('/pipeline')
+  }
+
+  async function generateEmail() {
+    setEmailLoading(true)
+    const res = await fetch('/api/ai/generate-email', {
+      method: 'POST',
+      body: JSON.stringify({
+        dealTitle: deal.title,
+        contactName: deal.contact?.name || 'Client',
+        notes: deal.notes,
+        lastActivity: deal.updatedAt,
+      }),
+    })
+    const data = await res.json()
+    setEmailDraft(data.draft || 'Unable to generate email.')
+    setEmailLoading(false)
+    setShowEmail(true)
+  }
+
+  async function generateProposal() {
+    setProposalLoading(true)
+    const res = await fetch('/api/ai/generate-proposal', {
+      method: 'POST',
+      body: JSON.stringify({
+        dealTitle: deal.title,
+        dealValue: deal.value,
+        contactName: deal.contact?.name || 'Client',
+        propertyTitle: deal.property?.title,
+        propertyAddress: deal.property?.address,
+        notes: deal.notes,
+      }),
+    })
+    const data = await res.json()
+    setProposal(data.proposal || 'Unable to generate proposal.')
+    setProposalLoading(false)
+    setShowProposal(true)
   }
 
   if (!deal) return <p className="text-gray-500">Loading...</p>
@@ -82,6 +137,23 @@ export default function DealPage() {
           )}
         </div>
 
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={generateEmail}
+            disabled={emailLoading}
+            className="rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          >
+            {emailLoading ? 'Generating...' : 'Generate Follow-up Email'}
+          </button>
+          <button
+            onClick={generateProposal}
+            disabled={proposalLoading}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {proposalLoading ? 'Generating...' : 'Generate Proposal'}
+          </button>
+        </div>
+
         <div className="mt-6">
           <label className="block text-sm text-gray-400 mb-1">Notes</label>
           <div className="flex gap-2">
@@ -94,6 +166,38 @@ export default function DealPage() {
           Created {new Date(deal.createdAt).toLocaleDateString()} · Days in stage: {Math.floor((Date.now() - new Date(deal.updatedAt).getTime()) / 86400000)}
         </p>
       </div>
+
+      {showEmail && (
+        <div className="rounded-xl border border-gray-800 bg-[#111827] p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-white">Draft Email</h2>
+            <button onClick={() => setShowEmail(false)} className="text-gray-500 hover:text-white text-sm">Close</button>
+          </div>
+          <textarea rows={8} value={emailDraft} readOnly className="w-full text-sm" />
+          <button
+            onClick={() => { navigator.clipboard.writeText(emailDraft) }}
+            className="mt-2 rounded-lg border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+          >
+            Copy to Clipboard
+          </button>
+        </div>
+      )}
+
+      {showProposal && (
+        <div className="rounded-xl border border-gray-800 bg-[#111827] p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-white">Proposal Draft</h2>
+            <button onClick={() => setShowProposal(false)} className="text-gray-500 hover:text-white text-sm">Close</button>
+          </div>
+          <textarea rows={12} value={proposal} readOnly className="w-full text-sm whitespace-pre-wrap" />
+          <button
+            onClick={() => { navigator.clipboard.writeText(proposal) }}
+            className="mt-2 rounded-lg border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+          >
+            Copy to Clipboard
+          </button>
+        </div>
+      )}
 
       {deal.tasks && deal.tasks.length > 0 && (
         <section className="rounded-xl border border-gray-800 bg-[#111827] p-5">

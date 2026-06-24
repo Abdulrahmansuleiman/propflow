@@ -7,6 +7,7 @@ const types = ['', 'buyer', 'seller', 'tenant', 'landlord']
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<any[]>([])
+  const [scores, setScores] = useState<Record<string, number>>({})
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
 
@@ -18,6 +19,16 @@ export default function ContactsPage() {
       .then((r) => r.json())
       .then(setContacts)
   }, [search, type])
+
+  useEffect(() => {
+    fetch('/api/contacts/score')
+      .then((r) => r.json())
+      .then((scored) => {
+        const map: Record<string, number> = {}
+        for (const s of scored) map[s.id] = s.score
+        setScores(map)
+      })
+  }, [contacts])
 
   return (
     <div className="space-y-6">
@@ -56,6 +67,7 @@ export default function ContactsPage() {
                 <th className="p-4 font-medium">Name</th>
                 <th className="p-4 font-medium">Email</th>
                 <th className="p-4 font-medium">Phone</th>
+                <th className="p-4 font-medium">Score</th>
                 <th className="p-4 font-medium">Type</th>
                 <th className="p-4 font-medium">Tags</th>
               </tr>
@@ -70,6 +82,15 @@ export default function ContactsPage() {
                   </td>
                   <td className="p-4 text-gray-400">{c.email || '—'}</td>
                   <td className="p-4 text-gray-400">{c.phone || '—'}</td>
+                  <td className="p-4">
+                    {scores[c.id] && (
+                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                        scores[c.id] >= 8 ? 'bg-green-900/40 text-green-300' :
+                        scores[c.id] >= 5 ? 'bg-yellow-900/40 text-yellow-300' :
+                        'bg-red-900/40 text-red-300'
+                      }`}>{scores[c.id]}</span>
+                    )}
+                  </td>
                   <td className="p-4">
                     <span className="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs text-gray-300 capitalize">
                       {c.type}
